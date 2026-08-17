@@ -113,6 +113,27 @@ async function tick() {
 
 > Never spend a UTXO ≤ ~1,000 sat as funding — those are the 546-sat postage outputs carrying inscriptions. Carry change locally between inscriptions to avoid waiting on API indexing.
 
+## 7b. Optimize: batch inscribe to cut fees (optional)
+
+Every inscription is **two transactions** (commit + reveal), and most of the fee is fixed *transaction overhead*, not content. **Batch inscribing** packs N children into **one commit + one reveal**, amortizing that overhead. Each child still lands on its **own 546-sat output** via the ordinals `pointer` tag, keeps **byte-identical** content, and is individually owned — indistinguishable to collectors.
+
+```js
+// micro-ordinals accepts an ARRAY of inscriptions; `pointer` places each on its own output.
+const inscriptions = rows.map((row, i) => {
+  const tags = { contentType: 'text/html;charset=utf-8' };
+  if (i > 0) tags.pointer = 546n * BigInt(i);   // i=0 → sat 0; i>0 → output i
+  return { tags, body: utf8.decode(childHtml(row.id, total, parentId)) };
+});
+const revealPayment = btc.p2tr(undefined,
+  ordinals.p2tr_ord_reveal(pub, inscriptions), NET, false, [ordinals.OutOrdinalReveal]);
+// commit funds N*546 + revealFee; reveal creates N dust outputs.
+// ids: <revealTxid>i0, <revealTxid>i1, … <revealTxid>i(N-1)
+```
+
+**Measured (1 sat/vB):** single ≈ 385 sat/token fee; batch of 25 ≈ **156 sat/token (~59% off the fee)**. The 546-sat postage is fixed, so total per-token outlay drops ~25% — plus ~25× fewer transactions (no mempool 25-chain stall).
+
+**Trade-off:** shared fate — a batch confirms in one reveal, so retry/verify per batch, not per token. Always round-trip the reveal with `parseWitness` to confirm every child decodes, and test a small batch before scaling. Cap batch size (~40) to stay relay-safe.
+
 ## 8. Auto-upgrade metadata → fully on Bitcoin
 
 Once `inscription_id` exists, Step 3 returns the `ordinals.com/content/…` image. Do this for all N tokens and the server becomes optional. **Royalties funded the migration; low-demand projects never reach this line — the quality filter.**

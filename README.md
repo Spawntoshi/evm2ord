@@ -50,7 +50,7 @@ When it completes, the collection lives on two chains at once: **art immutable o
 4. **Mint** via server-signed EIP-712 vouchers → `contract.mint(voucher, sig){value: price}`.
 5. **Fund a Bitcoin taproot wallet** (royalties top it up).
 6. **Inscribe the renderer once** as a recursive **parent**.
-7. **Inscribe each token** as a tiny recursive **child** via a fee-gated worker (only when fees ≤ your target).
+7. **Inscribe each token** as a tiny recursive **child** via a fee-gated worker (only when fees ≤ your target). Optionally **batch** many children into one commit+reveal to cut fees ~59% (see SPEC §7b).
 8. **Auto-upgrade** metadata → the art now serves from Bitcoin.
 
 Full step-by-step with code: [`docs/SPEC.md`](docs/SPEC.md).

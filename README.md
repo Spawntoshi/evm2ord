@@ -19,6 +19,7 @@ Most "on-chain" NFTs aren't — the JPEG lives on someone's S3 bucket. EVM2Ord f
 - **Migrate to Bitcoin, funded by royalties.** As secondary sales generate royalties, that revenue pays to inscribe each token onto Bitcoin as a recursive Ordinal. The metadata **auto-upgrades** to the immutable `ordinals.com/content/…` image.
 - **A built-in quality filter.** Royalties fuel the migration, so only collections with real demand ever finish inscribing. Low-effort projects never reach the finish line.
 - **Bi-directional.** EVM art backdoors onto BTC — *and* existing Ordinal collections can reverse-migrate into EVM for liquidity and tooling.
+- **Lock, never burn.** Migrating assets are **locked in a vault, never destroyed** — so every migration is reversible in both directions (see SPEC §9).
 
 The loop:
 

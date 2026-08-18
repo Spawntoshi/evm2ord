@@ -146,7 +146,7 @@ Deploy the Step-2 contract but point `tokenURI` directly at each inscription's c
 
 When an asset migrates cross-chain, EVM2Ord **locks it in a vault** — it is **never** sent to a burn/sink address. Because the asset is only escrowed, it can always be redeemed, so **every migration is reversible in both directions**. A "sink/burn" mode is deliberately excluded — it strands assets.
 
-- **Vault-bridge (default):** the migrating asset is locked; exactly one side is live at a time; fully reversible. Powered by [Emblem Vault](https://emblem.finance) (lock-and-release).
+- **Vault-bridge (default):** the migrating asset is locked; exactly one side is live at a time; fully reversible. A vault engine handles the lock-and-release.
 - **Dual-market:** nothing is locked or burned — the holder keeps the asset and a parallel EVM market is added (the token is a license/pointer). Two markets by design.
 
 **Reinclusion nuance:** if a round-trip must return the *exact original collection token* (contract + tokenId), use **lock-not-burn custody** — the original token is escrowed and released unchanged on return, rather than reissued as a new wrapper. Choose this at launch to guarantee reinclusion.

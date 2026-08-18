@@ -3,7 +3,7 @@
 ## Shipped (v1)
 - Recursive-ordinal art on Bitcoin; royalty-funded, **batched** inscription (~59% cheaper fees)
 - ERC-721 issuance on Robinhood Chain (ERC-2981 royalties + EIP-712 voucher mint)
-- **MIGRATE** platform — Ordinals ⇄ EVM via Emblem Vault, **lock-not-burn** (always reversible)
+- **MIGRATE** platform — Ordinals ⇄ EVM, **lock-not-burn** (always reversible)
 - **CREATE** platform — deploy an EVM2Ord ERC-721 from your own wallet
 - Live fee estimator; platform fee layer; security hardening
 
@@ -15,7 +15,7 @@ Let creators launch on more networks than Robinhood Chain.
 - **Other non-EVM (TON, Aptos, Sui, …)** — same pattern as Solana: chain-specific token, Bitcoin-native art.
 
 ## Phase 2 — MIGRATE depth
-- Per-project curated collections (onboard *any* collection, not only existing Emblem-curated ones)
+- Per-project curated collections (onboard *any* collection, not only pre-curated ones)
 - **Lock-not-burn custody** layer for exact-tokenId reinclusion (return the original token, not a new wrapper)
-- Real Emblem API key hardening + per-migration fee-revenue accounting
+- Vault API key hardening + per-migration fee-revenue accounting
 - End-to-end mint proof on a funded run

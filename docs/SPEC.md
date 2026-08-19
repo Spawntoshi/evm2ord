@@ -23,6 +23,8 @@ module.exports = { meta, buildSVG };
 
 OpenZeppelin v5 + ERC-2981 (royalties = fuel) + EIP-712 voucher mint (server-gated). See [`../contracts/EVM2OrdCollection.sol`](../contracts/EVM2OrdCollection.sol). The royalty recipient is the wallet that tops up your Bitcoin inscription wallet — that's the flywheel.
 
+**On-chain Bitcoin inscription address.** The contract declares, on-chain, *where this collection's art is inscribed on Bitcoin* — a `string public btcInscriptionAddress`, set at deploy (constructor arg) and changeable **only by the creator (owner)** via `setBtcInscriptionAddress`, with an optional one-time `lockBtcInscriptionAddress()` to freeze it forever. This is a public, creator-signed **commitment / pointer**, not custody: an EVM contract cannot hold BTC or verify inscriptions, so enforcement (actually sending inscriptions to that address) happens at the platform/indexer layer. It makes "where does this art live?" answerable directly from the token contract, and every change is an auditable on-chain event.
+
 Deploy to Robinhood Chain:
 
 ```js
@@ -77,11 +79,13 @@ await (await c.mint(voucher, sig, { value: price })).wait();
 
 On confirmation, insert the token into an `inscriptions` queue as `pending`. Buyer sees art instantly (renderer); Bitcoin inscription happens later, off the critical path.
 
-## 5. Fund a Bitcoin taproot wallet
+## 5. Pay for inscriptions — custodial *or* non-custodial
 
-Generate a P2TR hot wallet (key server-side, never web-served). Royalties top it up; it pays for every inscription.
+Two models; pick per how much custody you want to hold.
 
-**Lump sum vs chunks:** you can send one large amount (change handled, funds safe), but the mempool caps unconfirmed chains at **25** — a single coin stalls after ~25 inscriptions. Send a large amount split into **~5–10 UTXOs** (300k–500k sat each). Budget ~1,000 sat/token at 1 sat/vB.
+**A. Self-hosted (custodial).** Generate a P2TR hot wallet (key server-side, never web-served). Royalties top it up; it pays for every inscription. **Lump sum vs chunks:** you can send one large amount (change handled, funds safe), but the mempool caps unconfirmed chains at **25** — a single coin stalls after ~25 inscriptions. Send a large amount split into **~5–10 UTXOs** (300k–500k sat each). Budget ~1,000 sat/token at 1 sat/vB.
+
+**B. Non-custodial (creator's own wallet).** The platform holds **no keys and no funds**. For each batch, a **throwaway ephemeral key** is generated in the creator's browser (used once) to sign the reveal; the creator's **own Bitcoin wallet funds the commit**; inscriptions land at the contract-declared `btcInscriptionAddress` (any wallet may fund — the destination is independent of the payer). Works with **Unisat, Xverse, Leather, and OKX**; the creator sets the **fee rate (sats/vByte)** and can raise it if fees spike. The editable fee rate always governs the reveal fee (the commit amount is computed from it). This is the model the EVM2Ord Platform uses by default.
 
 ## 6. Inscribe the PARENT renderer (once)
 

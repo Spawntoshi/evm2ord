@@ -20,6 +20,14 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
     string  private _base;         // metadata base, e.g. https://you.xyz/meta/
     string  private _contractURI;  // marketplace-level collection metadata
 
+    // On-chain declaration of where this collection's art is inscribed on Bitcoin.
+    // Set at deploy; changeable ONLY by the creator (owner), and optionally lockable forever.
+    // This is a public, creator-signed COMMITMENT / pointer — an EVM contract cannot custody BTC
+    // or verify inscriptions, so enforcement (sending inscriptions to this address) happens at the
+    // platform / indexer layer. It makes "where does this collection's art live?" answerable on-chain.
+    string  public btcInscriptionAddress;
+    bool    public btcInscriptionAddressLocked;
+
     mapping(uint256 => bool) public minted;
 
     struct MintVoucher { address to; uint256 tokenId; uint256 nonce; uint256 deadline; }
@@ -27,6 +35,8 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
         keccak256("MintVoucher(address to,uint256 tokenId,uint256 nonce,uint256 deadline)");
 
     event Minted(address indexed to, uint256 indexed tokenId);
+    event BtcInscriptionAddressUpdated(string addr);
+    event BtcInscriptionAddressLocked();
 
     constructor(
         string memory name_,
@@ -36,13 +46,15 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
         string memory baseURI_,
         string memory contractURI_,
         address royaltyReceiver_,
-        uint96 royaltyBps_          // e.g. 500 = 5%
+        uint96 royaltyBps_,             // e.g. 500 = 5%
+        string memory btcInscriptionAddress_
     ) ERC721(name_, symbol_) Ownable(msg.sender) EIP712("EVM2Ord", "1") {
         MAX_SUPPLY   = maxSupply_;
         minterSigner = minterSigner_;
         _base        = baseURI_;
         _contractURI = contractURI_;
         _setDefaultRoyalty(royaltyReceiver_, royaltyBps_);
+        btcInscriptionAddress = btcInscriptionAddress_;
     }
 
     /// @notice Mint a token authorized by a server-signed EIP-712 voucher.
@@ -78,6 +90,19 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
     function setBaseURI(string calldata b) external onlyOwner { _base = b; }
     function setContractURI(string calldata c) external onlyOwner { _contractURI = c; }
     function setRoyalty(address r, uint96 bps) external onlyOwner { _setDefaultRoyalty(r, bps); }
+
+    /// @notice Change the declared Bitcoin inscription address. Owner-only; blocked once locked.
+    function setBtcInscriptionAddress(string calldata a) external onlyOwner {
+        require(!btcInscriptionAddressLocked, "btc address locked");
+        btcInscriptionAddress = a;
+        emit BtcInscriptionAddressUpdated(a);
+    }
+    /// @notice Freeze the Bitcoin inscription address forever (irreversible) for maximum provenance.
+    function lockBtcInscriptionAddress() external onlyOwner {
+        btcInscriptionAddressLocked = true;
+        emit BtcInscriptionAddressLocked();
+    }
+
     function withdraw(address payable to) external onlyOwner nonReentrant {
         (bool ok, ) = to.call{value: address(this).balance}("");
         require(ok, "withdraw failed");

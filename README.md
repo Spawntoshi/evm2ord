@@ -49,7 +49,7 @@ When it completes, the collection lives on two chains at once: **art immutable o
    ```
 3. **Run a metadata server** whose `image` points at your renderer now, and at `ordinals.com/content/<id>` once inscribed.
 4. **Mint** via server-signed EIP-712 vouchers → `contract.mint(voucher, sig){value: price}`.
-5. **Fund a Bitcoin taproot wallet** (royalties top it up).
+5. **Pay for inscriptions** — a self-hosted taproot wallet (royalties top it up), **or non-custodially** from the creator's own wallet (Unisat/Xverse/Leather/OKX; the platform holds no keys).
 6. **Inscribe the renderer once** as a recursive **parent**.
 7. **Inscribe each token** as a tiny recursive **child** via a fee-gated worker (only when fees ≤ your target). Optionally **batch** many children into one commit+reveal to cut fees ~59% (see SPEC §7b).
 8. **Auto-upgrade** metadata → the art now serves from Bitcoin.
@@ -69,9 +69,11 @@ Explorer: https://robinhoodchain.blockscout.com
 
 ---
 
-## Funding the inscription wallet — lump sum vs chunks
+## Paying for inscriptions — custodial or non-custodial
 
-You **can** send one large amount (change is handled automatically, funds are safe). But Bitcoin's mempool caps **unconfirmed transaction chains at 25** — with a single coin, every inscription chains off the previous change and stalls after ~25 until a block confirms. With several independent coins the worker funds inscriptions in parallel.
+**Non-custodial (recommended for platforms):** the creator inscribes from their **own** Bitcoin wallet — **Unisat, Xverse, Leather, or OKX**. A throwaway ephemeral key (generated in the browser, used once) signs the reveal; the creator's wallet funds the commit; inscriptions land at the contract's declared `btcInscriptionAddress` — **any** wallet can fund because the destination is independent of the payer. The creator sets the fee rate (sats/vByte) and can raise it if fees spike. No keys or funds are ever held by the platform.
+
+**Self-hosted (custodial) — lump sum vs chunks:** you **can** send one large amount to your own hot wallet (change is handled automatically, funds are safe). But Bitcoin's mempool caps **unconfirmed transaction chains at 25** — with a single coin, every inscription chains off the previous change and stalls after ~25 until a block confirms. With several independent coins the worker funds inscriptions in parallel.
 
 **Best practice:** send a large amount split into **~5–10 UTXOs** (a few separate sends of 300k–500k sat each). Budget **~1,000 sat per token** at 1 sat/vB. Never spend a UTXO ≤ ~1,000 sat — those are the 546-sat postage outputs carrying your inscriptions.
 

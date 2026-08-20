@@ -25,6 +25,34 @@ OpenZeppelin v5 + ERC-2981 (royalties = fuel) + EIP-712 voucher mint (server-gat
 
 **On-chain Bitcoin inscription address.** The contract declares, on-chain, *where this collection's art is inscribed on Bitcoin* — a `string public btcInscriptionAddress`, set at deploy (constructor arg) and changeable **only by the creator (owner)** via `setBtcInscriptionAddress`, with an optional one-time `lockBtcInscriptionAddress()` to freeze it forever. This is a public, creator-signed **commitment / pointer**, not custody: an EVM contract cannot hold BTC or verify inscriptions, so enforcement (actually sending inscriptions to that address) happens at the platform/indexer layer. It makes "where does this art live?" answerable directly from the token contract, and every change is an auditable on-chain event.
 
+### Royalty enforcement (choose at deploy)
+
+ERC-2981 only **declares** a royalty; marketplaces may ignore it. Since royalties **fund the migration to Bitcoin**, unreliable royalties starve the flywheel — so enforcement is a launch-time choice:
+
+- **Standard** — ERC-2981 only. Maximum compatibility; royalties honored where a marketplace chooses to.
+- **Enforced (any EVM chain, incl. Robinhood)** — a self-contained, **ERC-721C-style operator allowlist** baked into the contract. A token can only be *sold* through an allow-listed, royalty-honoring operator; transfers pushed by any other operator revert, while **direct wallet-to-wallet transfers by the holder stay free**. No external transfer-validator, so it deploys anywhere.
+
+  ```solidity
+  bool public royaltyEnforced = true;
+  mapping(address => bool) public allowedOperator; // owner-curated: your royalty-honoring marketplaces
+
+  modifier onlyAllowedOperatorApproval(address op) {
+      if (royaltyEnforced && op != address(0) && !allowedOperator[op]) revert("operator not allowlisted");
+      _;
+  }
+  function approve(address to, uint256 id) public override onlyAllowedOperatorApproval(to) { super.approve(to, id); }
+  function setApprovalForAll(address op, bool ok) public override onlyAllowedOperatorApproval(op) { super.setApprovalForAll(op, ok); }
+  function transferFrom(address from, address to, uint256 id) public override {
+      if (royaltyEnforced && msg.sender != from && !allowedOperator[msg.sender]) revert("operator not allowlisted");
+      super.transferFrom(from, to, id);
+  }
+  // owner: setAllowedOperator(op, ok) / setAllowedOperators(ops[], ok) / setRoyaltyEnforced(on)
+  ```
+
+- **Enforced (Ethereum / Base / Arbitrum — Phase 2)** — use true **ERC-721C** (Limit Break Creator Token Standard) + **Payment Processor**, which give *marketplace-recognized* enforcement via the on-chain transfer validator that already exists on those chains.
+
+**Trade-offs & limits.** Enforcement trades composability/liquidity for reliable royalties (allow-list must be curated; some marketplaces won't be permitted). Nothing is 100% unavoidable (OTC/wrapping can route around it) — it raises the floor. And it can **only be chosen at deploy**: an already-deployed standard contract is immutable and cannot be retrofitted. OpenSea's old Operator Filter Registry (the former on-chain enforcement path) was **sunset in Aug 2023**, so allow-list / ERC-721C is the current approach.
+
 Deploy to Robinhood Chain:
 
 ```js

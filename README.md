@@ -18,6 +18,7 @@ Most "on-chain" NFTs aren't — the JPEG lives on someone's S3 bucket. EVM2Ord f
 - **Mint fast & liquid.** ERC-721s trade on OpenSea from block one. The `tokenURI` image points at a renderer you control.
 - **Migrate to Bitcoin, funded by royalties.** As secondary sales generate royalties, that revenue pays to inscribe each token onto Bitcoin as a recursive Ordinal. The metadata **auto-upgrades** to the immutable `ordinals.com/content/…` image.
 - **A built-in quality filter.** Royalties fuel the migration, so only collections with real demand ever finish inscribing. Low-effort projects never reach the finish line.
+- **Enforceable royalties (opt-in at deploy).** Because royalties *fund the inscriptions*, you can deploy an **enforced** contract — a self-contained ERC-721C-style operator allowlist so tokens only sell through royalty-honoring marketplaces you approve (works on any EVM chain; true ERC-721C + Payment Processor on Ethereum/Base in Phase 2). Standard ERC-2981 is the default. See SPEC §2.
 - **Bi-directional.** EVM art backdoors onto BTC — *and* existing Ordinal collections can reverse-migrate into EVM for liquidity and tooling.
 - **Lock, never burn.** Migrating assets are **locked in a vault, never destroyed** — so every migration is reversible in both directions (see SPEC §9).
 

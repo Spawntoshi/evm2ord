@@ -124,6 +124,30 @@ inscribeParent(rendererJs, wallet, { network:'mainnet', feeRate:1 });
 
 A ~30 KB renderer ≈ ~8,300 sat at 1 sat/vB, inscribed once; every child reuses it.
 
+**Cover image (optional).** The parent is your render *engine*, but it can also carry a **cover image** so it shows a proper collection card on ordinals.com/marketplaces instead of raw code — wrap the renderer in an HTML shell that paints your banner. Purely optional; the engine works either way.
+
+### 6b. Make the engine a true parent inscription (collection provenance)
+
+The same inscription can be both the recursive **render engine** *and* the ordinals **provenance parent** — the on-chain root every child is registered under. Then `ordinals.com/r/children/<PARENT>` returns all N token ids and the collection is provable from one inscription, **no off-chain manifest required.**
+
+Ordinals provenance requires **two** things on every child (the tag alone is not enough):
+
+1. the child inscription carries the **`parent` tag** = the parent inscription id, and
+2. the child's **reveal transaction spends the parent's sat** as an input and returns it — proving the parent's owner authorized the child.
+
+```js
+// batch reveal: tag each child parent=PARENT *and* thread the parent sat through the tx
+inscribeBatch(rows, wallet, {
+  parentId:   PARENT_INSCRIPTION_ID,   // recursive render reference (/content/<id>)
+  provenance: true,                    // ← spend + return the parent sat; tag each child parent=PARENT
+  feeRate: 1,
+});
+// → ordinals.com/r/children/PARENT lists every token. Verifiable, on-chain.
+```
+
+- **Trade-off:** each batch's reveal must spend the parent sat and hand it to the next batch, so **batches run sequentially** (chained on the parent output) — slightly slower, real provenance. Fees otherwise unchanged.
+- **Set it at inscription time.** Provenance is written into each child's reveal and **cannot be retrofitted**. A recursive-only collection (like SPAWNHOOD Genesis, which predates this) has no on-chain parent and is grouped by an off-chain manifest; retrofitting would mean re-inscribing everything. Turn it on at launch and provenance is free.
+
 ## 7. Inscribe each token as a recursive CHILD
 
 ```html

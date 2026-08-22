@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Base64.sol";
 
 /// @title EVM2Ord Collection — reference ERC-721 for the EVM2Ord Protocol.
 /// @notice Liquid ERC-721 today; art migrates to recursive Bitcoin Ordinals over time,
@@ -27,6 +28,14 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
     // platform / indexer layer. It makes "where does this collection's art live?" answerable on-chain.
     string  public btcInscriptionAddress;
     bool    public btcInscriptionAddressLocked;
+
+    // Optional server-free metadata: when ON, tokenURI returns an on-chain data URI whose image is the
+    // token's own Bitcoin inscription. Populate _insc (owner), then flip onchainMetadata. Any token not
+    // yet set falls back to the baseURI JSON — switch over progressively, then run with no server at all.
+    mapping(uint256 => string) private _insc;
+    bool    public onchainMetadata;
+    string  public ordinalsGateway = "https://ordinals.com/content/";
+    event InscriptionSet(uint256 indexed tokenId, string inscriptionId);
 
     mapping(uint256 => bool) public minted;
 
@@ -80,6 +89,16 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
 
     function tokenURI(uint256 id) public view override returns (string memory) {
         _requireOwned(id);
+        string memory insc = _insc[id];
+        if (onchainMetadata && bytes(insc).length > 0) {
+            // fully self-contained: metadata built on-chain, image served from the Bitcoin inscription
+            string memory img = string.concat(ordinalsGateway, insc);
+            string memory json = string.concat(
+                '{"name":"#', id.toString(), '","image":"', img,
+                '","animation_url":"', img, '","attributes":[{"trait_type":"Inscribed","value":"Bitcoin"}]}'
+            );
+            return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
+        }
         return string.concat(_base, id.toString(), ".json");
     }
 
@@ -90,6 +109,13 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
     function setBaseURI(string calldata b) external onlyOwner { _base = b; }
     function setContractURI(string calldata c) external onlyOwner { _contractURI = c; }
     function setRoyalty(address r, uint96 bps) external onlyOwner { _setDefaultRoyalty(r, bps); }
+
+    /// @notice Server-free metadata: point each token at its Bitcoin inscription, then flip it on.
+    function setInscription(uint256 tokenId, string calldata inscriptionId) external onlyOwner { _insc[tokenId] = inscriptionId; emit InscriptionSet(tokenId, inscriptionId); }
+    function setInscriptions(uint256[] calldata ids, string[] calldata insc) external onlyOwner { require(ids.length == insc.length, "length"); for (uint256 i; i < ids.length; i++) { _insc[ids[i]] = insc[i]; emit InscriptionSet(ids[i], insc[i]); } }
+    function inscriptionOf(uint256 tokenId) external view returns (string memory) { return _insc[tokenId]; }
+    function setOnchainMetadata(bool on) external onlyOwner { onchainMetadata = on; }
+    function setOrdinalsGateway(string calldata g) external onlyOwner { ordinalsGateway = g; }
 
     /// @notice Change the declared Bitcoin inscription address. Owner-only; blocked once locked.
     function setBtcInscriptionAddress(string calldata a) external onlyOwner {

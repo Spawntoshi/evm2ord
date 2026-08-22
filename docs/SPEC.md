@@ -194,6 +194,22 @@ const revealPayment = btc.p2tr(undefined,
 
 Once `inscription_id` exists, Step 3 returns the `ordinals.com/content/…` image. Do this for all N tokens and the server becomes optional. **Royalties funded the migration; low-demand projects never reach this line — the quality filter.**
 
+### 8b. Server-free metadata: `tokenURI` builds the JSON on-chain, image on Bitcoin
+
+The reference contract can drop the server entirely. Store each token's inscription id on-chain, flip a switch, and `tokenURI` returns a **self-contained `data:application/json;base64,…`** whose `image`/`animation_url` point at the token's **Bitcoin inscription** — no baseURI host, no IPFS, no Arweave. It's a **progressive** switch: any token whose inscription id isn't set yet still falls back to the baseURI JSON, so you migrate at your own pace and then go fully on-chain.
+
+```solidity
+// owner, after inscribing: record ids on-chain (batched), then flip the switch
+setInscriptions([1,2,3], ["6f68…i0","22a5…i0","6a62…i0"]);
+setOnchainMetadata(true);
+// tokenURI(1) → data:application/json;base64,<{"name":"#1","image":"https://ordinals.com/content/6f68…i0", …}>
+setOrdinalsGateway("https://ordinals.com/content/"); // swappable if you ever want a different ord gateway
+```
+
+- **Why not point `tokenURI` straight at ordinals?** Because `tokenURI = base + id + ".json"` in the vanilla contract, and ordinals content is addressed by opaque hash id with no path routing — `content/<gallery><id>.json` doesn't resolve. Building the JSON on-chain (with the inscription id looked up per token) is the way to reference Bitcoin directly.
+- **Gateway caveat.** Marketplaces fetch the image bytes through an ord gateway URL (the data is on Bitcoin; a viewer still needs some ord node). The gateway is owner-swappable (`setOrdinalsGateway`) so it never hard-rots.
+- **Immutable contracts can't add this after deploy** — it's a launch-time capability. (SPAWNHOOD's Genesis contract predates it; new EVM2Ord launches get it built in.)
+
 ## 9. (Reverse) Migrate Ordinals → EVM
 
 Deploy the Step-2 contract but point `tokenURI` directly at each inscription's content — no new inscription needed. Existing Ordinal collections gain EVM liquidity/tooling while the art stays native to Bitcoin.

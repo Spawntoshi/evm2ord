@@ -30,28 +30,29 @@ OpenZeppelin v5 + ERC-2981 (royalties = fuel) + EIP-712 voucher mint (server-gat
 ERC-2981 only **declares** a royalty; marketplaces may ignore it. Since royalties **fund the migration to Bitcoin**, unreliable royalties starve the flywheel — so enforcement is a launch-time choice:
 
 - **Standard** — ERC-2981 only. Maximum compatibility; royalties honored where a marketplace chooses to.
-- **Enforced (any EVM chain, incl. Robinhood)** — a self-contained, **ERC-721C-style operator allowlist** baked into the contract. A token can only be *sold* through an allow-listed, royalty-honoring operator; transfers pushed by any other operator revert, while **direct wallet-to-wallet transfers by the holder stay free**. No external transfer-validator, so it deploys anywhere.
+- **Enforced — real ERC-721C** (LimitBreak Creator Token Standard). This is the **default** for EVM2Ord launches. The contract extends `ERC721C`, exposes the `ICreatorToken` interface + ERC-2981, and on deploy **auto-registers the canonical transfer validator** (`0x721C002B0059009a671D00aD1700c9748146cd1B`, live on Robinhood Chain mainnet 4663). Marketplaces (OpenSea) read that combination — `ICreatorToken` + a non-zero registered validator + ERC-2981 — as **enforced royalties**: a token can only be *sold* through royalty-honoring operators the validator permits, while **direct wallet-to-wallet transfers by the holder stay free**. No custom security level or list is needed for the badge.
 
   ```solidity
-  bool public royaltyEnforced = true;
-  mapping(address => bool) public allowedOperator; // owner-curated: your royalty-honoring marketplaces
+  // OpenZeppelin v4.9.6 (required by creator-token-standards@4.0.0) + solc 0.8.24, evm cancun.
+  import {ERC721C} from "@limitbreak/creator-token-standards/src/erc721c/ERC721C.sol";
+  import {ERC721OpenZeppelin} from "@limitbreak/creator-token-standards/src/token/erc721/ERC721OpenZeppelin.sol";
+  import {BasicRoyalties, ERC2981} from "@limitbreak/creator-token-standards/src/programmable-royalties/BasicRoyalties.sol";
+  import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-  modifier onlyAllowedOperatorApproval(address op) {
-      if (royaltyEnforced && op != address(0) && !allowedOperator[op]) revert("operator not allowlisted");
-      _;
+  contract Collection is ERC721C, BasicRoyalties, Ownable {
+      constructor(string memory name_, string memory symbol_, address royaltyTo, uint96 bps)
+          ERC721OpenZeppelin(name_, symbol_) BasicRoyalties(royaltyTo, bps) {}      // validator auto-registers; no arg
+
+      // the two MANDATORY overrides (or it won't compile / won't expose ICreatorToken):
+      function _requireCallerIsContractOwner() internal view virtual override { _checkOwner(); }
+      function supportsInterface(bytes4 iid) public view virtual override(ERC721C, ERC2981) returns (bool) {
+          return super.supportsInterface(iid);
+      }
   }
-  function approve(address to, uint256 id) public override onlyAllowedOperatorApproval(to) { super.approve(to, id); }
-  function setApprovalForAll(address op, bool ok) public override onlyAllowedOperatorApproval(op) { super.setApprovalForAll(op, ok); }
-  function transferFrom(address from, address to, uint256 id) public override {
-      if (royaltyEnforced && msg.sender != from && !allowedOperator[msg.sender]) revert("operator not allowlisted");
-      super.transferFrom(from, to, id);
-  }
-  // owner: setAllowedOperator(op, ok) / setAllowedOperators(ops[], ok) / setRoyaltyEnforced(on)
   ```
+  **Gotchas:** pin **OpenZeppelin v4.9.6** (creator-token-standards@4.0.0 is built for OZ v4 — v5's `Ownable(initialOwner)`, removed `_exists`, and moved `ECDSA` will break it); include the transitive `@limitbreak/permit-c`; compile **cancun / solc 0.8.24**; and note the transfer-validator generation differs on RH **testnet** vs mainnet — verify before testing there.
 
-- **Enforced (Ethereum / Base / Arbitrum — Phase 2)** — use true **ERC-721C** (Limit Break Creator Token Standard) + **Payment Processor**, which give *marketplace-recognized* enforcement via the on-chain transfer validator that already exists on those chains.
-
-**Trade-offs & limits.** Enforcement trades composability/liquidity for reliable royalties (allow-list must be curated; some marketplaces won't be permitted). Nothing is 100% unavoidable (OTC/wrapping can route around it) — it raises the floor. And it can **only be chosen at deploy**: an already-deployed standard contract is immutable and cannot be retrofitted. OpenSea's old Operator Filter Registry (the former on-chain enforcement path) was **sunset in Aug 2023**, so allow-list / ERC-721C is the current approach.
+**Trade-offs & limits.** Enforcement trades some composability/liquidity for reliable royalties (some marketplaces/operators won't be permitted by the validator). Nothing is 100% unavoidable (OTC/wrapping can route around it) — it raises the floor. It can **only be chosen at deploy**: an already-deployed standard contract is immutable and cannot be retrofitted. OpenSea's old Operator Filter Registry was **sunset Aug 2023**; ERC-721C's transfer validator is the current marketplace-recognized path.
 
 Deploy to Robinhood Chain:
 

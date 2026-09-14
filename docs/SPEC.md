@@ -70,6 +70,15 @@ npx hardhat run scripts/deploy.js --network robinhoodMainnet
 
 > No testnet ETH? Deploy straight to mainnet (gas is cents), or deploy from the owner's own wallet in the browser via `ContractFactory.deploy` so no private key touches your server.
 
+### Deploy ≠ mint
+
+Deploying only creates the **collection contract** — it holds **zero tokens** until you mint, and until a token exists `ownerOf(id)`/`tokenURI(id)` revert and marketplaces (OpenSea) show an empty collection. So minting is a distinct, required step after deploy:
+
+- **Creator pieces** — mint to yourself with owner-only `ownerMint(to, tokenId)` (a 1-of-1 → token `#1`; editions → `1…N`). This is what makes a fixed collection actually appear/trade.
+- **Public sale** — let buyers mint through the server-signed EIP-712 voucher flow in §4.
+
+Only minted tokens exist, render, and are tradeable. A common launch bug is deploying + inscribing but forgetting to mint — the collection looks empty on OpenSea because it literally has no tokens.
+
 ## 3. Metadata + renderer server
 
 `tokenURI` base points here. `image`/`animation_url` return the renderer now, the Bitcoin ordinal once inscribed.

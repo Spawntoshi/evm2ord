@@ -51,7 +51,7 @@ When it completes, the collection lives on two chains at once: **art immutable o
    npx hardhat run scripts/deploy.js --network robinhoodMainnet
    ```
 3. **Run a metadata server** whose `image` points at your renderer now, and at `ordinals.com/content/<id>` once inscribed.
-4. **Mint** via server-signed EIP-712 vouchers → `contract.mint(voucher, sig){value: price}`.
+4. **Mint the tokens** — ⚠️ *deploying only creates the **collection**; it has **zero tokens** until you mint*, and marketplaces (OpenSea) show an empty collection until one exists. Mint your own pieces with owner-only `ownerMint(to, tokenId)` (a 1-of-1 → token #1, editions → 1…N), and/or let buyers mint via server-signed EIP-712 vouchers → `contract.mint(voucher, sig){value: price}`.
 5. **Pay for inscriptions** — a self-hosted taproot wallet (royalties top it up), **or non-custodially** from the creator's own wallet (Unisat/Xverse/Leather/OKX; the platform holds no keys).
 6. **Inscribe the renderer once** as a recursive **parent**.
 7. **Inscribe each token** as a tiny recursive **child** via a fee-gated worker (only when fees ≤ your target). Optionally **batch** many children into one commit+reveal to cut fees ~59% (see SPEC §7b).

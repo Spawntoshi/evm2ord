@@ -222,6 +222,22 @@ setOrdinalsGateway("https://ordinals.com/content/"); // swappable if you ever wa
 - **Gateway caveat.** Marketplaces fetch the image bytes through an ord gateway URL (the data is on Bitcoin; a viewer still needs some ord node). The gateway is owner-swappable (`setOrdinalsGateway`) so it never hard-rots.
 - **Immutable contracts can't add this after deploy** — it's a launch-time capability. (SPAWNHOOD's Genesis contract predates it; new EVM2Ord launches get it built in.)
 
+### 8c. Tell marketplaces to refresh — ERC-4906
+
+The metadata **changes on-chain** at every step above: the `image` swaps from renderer → Bitcoin ordinal, you flip `setBaseURI` (e.g. host → IPFS), or you flip `setOnchainMetadata`. Marketplaces cache `tokenURI` aggressively, so a change on-chain doesn't show up until they re-read it — and there is **no public API to force a whole-contract re-crawl**. The fix is the **ERC-4906** metadata-update standard, which OpenSea listens to. The reference contract implements it: it reports `supportsInterface(0x49064906) == true` and emits the two standard events at exactly the moments metadata changes.
+
+```solidity
+event MetadataUpdate(uint256 _tokenId);                       // one token changed
+event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId); // a range changed
+
+setBaseURI(newBase);              // emits BatchMetadataUpdate(0, type(uint256).max) — refresh ALL
+setInscription(id, "6f68…i0");    // emits MetadataUpdate(id)                        — refresh ONE
+setInscriptions(ids, inscs);      // emits MetadataUpdate per id                     — refresh each
+setOnchainMetadata(true);         // emits BatchMetadataUpdate(0, type(uint256).max) — refresh ALL
+```
+
+So when a token gets inscribed (or you migrate the base to IPFS), the contract **signals OpenSea to re-read `tokenURI` automatically** — no per-item "refresh metadata" clicking, no support ticket. Build this in at deploy; it **cannot be retrofitted** to an immutable contract. (SPAWNHOOD's Genesis contract predates it — which is exactly why its base-URI→IPFS migration needed a manual OpenSea re-crawl; every new EVM2Ord launch avoids that.)
+
 ## 9. (Reverse) Migrate Ordinals → EVM
 
 Deploy the Step-2 contract but point `tokenURI` directly at each inscription's content — no new inscription needed. Existing Ordinal collections gain EVM liquidity/tooling while the art stays native to Bitcoin.

@@ -48,6 +48,10 @@ contract SpawnhoodGenesisEnforced is ERC721C, BasicRoyalties, Ownable, EIP712, R
     event SignerUpdated(address signer);
     event BtcInscriptionAddressUpdated(string addr);
     event BtcInscriptionAddressLocked();
+    // ERC-4906: tells marketplaces (OpenSea) to re-read tokenURI whenever metadata changes on-chain
+    // (baseURI flip, inscription swap, on-chain-metadata toggle). One event → an instant collection refresh.
+    event MetadataUpdate(uint256 _tokenId);
+    event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
 
     constructor(
         address initialOwner,
@@ -129,16 +133,16 @@ contract SpawnhoodGenesisEnforced is ERC721C, BasicRoyalties, Ownable, EIP712, R
     function setTierPrices(uint256[5] calldata p) external onlyOwner { tierPrice = p; emit PriceUpdated(p[4]); }
     function setTierPrice(uint8 i, uint256 wei_) external onlyOwner { require(i < 5, "bad tier"); tierPrice[i] = wei_; emit PriceUpdated(wei_); }
     function setMinterSigner(address s) external onlyOwner { minterSigner = s; emit SignerUpdated(s); }
-    function setBaseURI(string calldata b) external onlyOwner { _base = b; }
+    function setBaseURI(string calldata b) external onlyOwner { _base = b; emit BatchMetadataUpdate(0, type(uint256).max); }
     function setContractURI(string calldata c) external onlyOwner { _contractURI = c; }
     function setRoyalty(address r, uint96 bps) external onlyOwner { _setDefaultRoyalty(r, bps); }
 
     // ---------- server-free on-chain metadata (image lives on Bitcoin) ----------
-    function setInscription(uint256 tokenId, string calldata inscriptionId) external onlyOwner { _insc[tokenId] = inscriptionId; emit InscriptionSet(tokenId, inscriptionId); }
-    function setInscriptions(uint256[] calldata ids, string[] calldata insc) external onlyOwner { require(ids.length == insc.length, "length"); for (uint256 i; i < ids.length; i++) { _insc[ids[i]] = insc[i]; emit InscriptionSet(ids[i], insc[i]); } }
+    function setInscription(uint256 tokenId, string calldata inscriptionId) external onlyOwner { _insc[tokenId] = inscriptionId; emit InscriptionSet(tokenId, inscriptionId); emit MetadataUpdate(tokenId); }
+    function setInscriptions(uint256[] calldata ids, string[] calldata insc) external onlyOwner { require(ids.length == insc.length, "length"); for (uint256 i; i < ids.length; i++) { _insc[ids[i]] = insc[i]; emit InscriptionSet(ids[i], insc[i]); emit MetadataUpdate(ids[i]); } }
     function inscriptionOf(uint256 tokenId) external view returns (string memory) { return _insc[tokenId]; }
-    function setOnchainMetadata(bool on) external onlyOwner { onchainMetadata = on; }
-    function setOrdinalsGateway(string calldata g) external onlyOwner { ordinalsGateway = g; }
+    function setOnchainMetadata(bool on) external onlyOwner { onchainMetadata = on; emit BatchMetadataUpdate(0, type(uint256).max); }
+    function setOrdinalsGateway(string calldata g) external onlyOwner { ordinalsGateway = g; emit BatchMetadataUpdate(0, type(uint256).max); }
 
     // ---------- BTC inscription address (creator-only) ----------
     function setBtcInscriptionAddress(string calldata a) external onlyOwner {
@@ -169,6 +173,6 @@ contract SpawnhoodGenesisEnforced is ERC721C, BasicRoyalties, Ownable, EIP712, R
     // Wire the LimitBreak owner check to OZ Ownable, and resolve the ERC721C + ERC2981 diamond.
     function _requireCallerIsContractOwner() internal view virtual override { _checkOwner(); }
     function supportsInterface(bytes4 id) public view virtual override(ERC721C, ERC2981) returns (bool) {
-        return super.supportsInterface(id);
+        return id == bytes4(0x49064906) || super.supportsInterface(id); // ERC-4906 (metadata update)
     }
 }

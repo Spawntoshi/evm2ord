@@ -46,6 +46,10 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
     event Minted(address indexed to, uint256 indexed tokenId);
     event BtcInscriptionAddressUpdated(string addr);
     event BtcInscriptionAddressLocked();
+    // ERC-4906: tells marketplaces (OpenSea) to re-read tokenURI whenever metadata changes on-chain
+    // (baseURI flip, inscription swap, on-chain-metadata toggle). One event → an instant collection refresh.
+    event MetadataUpdate(uint256 _tokenId);
+    event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
 
     constructor(
         string memory name_,
@@ -106,16 +110,16 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
 
     // --- admin ---
     function setSigner(address s) external onlyOwner { minterSigner = s; }
-    function setBaseURI(string calldata b) external onlyOwner { _base = b; }
+    function setBaseURI(string calldata b) external onlyOwner { _base = b; emit BatchMetadataUpdate(0, type(uint256).max); }
     function setContractURI(string calldata c) external onlyOwner { _contractURI = c; }
     function setRoyalty(address r, uint96 bps) external onlyOwner { _setDefaultRoyalty(r, bps); }
 
     /// @notice Server-free metadata: point each token at its Bitcoin inscription, then flip it on.
-    function setInscription(uint256 tokenId, string calldata inscriptionId) external onlyOwner { _insc[tokenId] = inscriptionId; emit InscriptionSet(tokenId, inscriptionId); }
-    function setInscriptions(uint256[] calldata ids, string[] calldata insc) external onlyOwner { require(ids.length == insc.length, "length"); for (uint256 i; i < ids.length; i++) { _insc[ids[i]] = insc[i]; emit InscriptionSet(ids[i], insc[i]); } }
+    function setInscription(uint256 tokenId, string calldata inscriptionId) external onlyOwner { _insc[tokenId] = inscriptionId; emit InscriptionSet(tokenId, inscriptionId); emit MetadataUpdate(tokenId); }
+    function setInscriptions(uint256[] calldata ids, string[] calldata insc) external onlyOwner { require(ids.length == insc.length, "length"); for (uint256 i; i < ids.length; i++) { _insc[ids[i]] = insc[i]; emit InscriptionSet(ids[i], insc[i]); emit MetadataUpdate(ids[i]); } }
     function inscriptionOf(uint256 tokenId) external view returns (string memory) { return _insc[tokenId]; }
-    function setOnchainMetadata(bool on) external onlyOwner { onchainMetadata = on; }
-    function setOrdinalsGateway(string calldata g) external onlyOwner { ordinalsGateway = g; }
+    function setOnchainMetadata(bool on) external onlyOwner { onchainMetadata = on; emit BatchMetadataUpdate(0, type(uint256).max); }
+    function setOrdinalsGateway(string calldata g) external onlyOwner { ordinalsGateway = g; emit BatchMetadataUpdate(0, type(uint256).max); }
 
     /// @notice Change the declared Bitcoin inscription address. Owner-only; blocked once locked.
     function setBtcInscriptionAddress(string calldata a) external onlyOwner {
@@ -136,5 +140,5 @@ contract EVM2OrdCollection is ERC721, ERC2981, Ownable, EIP712, ReentrancyGuard 
 
     function supportsInterface(bytes4 id)
         public view override(ERC721, ERC2981) returns (bool)
-    { return super.supportsInterface(id); }
+    { return id == bytes4(0x49064906) || super.supportsInterface(id); } // ERC-4906 (metadata update)
 }

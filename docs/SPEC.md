@@ -96,6 +96,8 @@ app.get('/meta/:id.json', async (req, res) => {
 });
 ```
 
+> **Hosted multi-image collections (no server of your own).** You don't need to run this yourself: the reference platform can host a whole collection — upload each piece and it serves the per-token metadata for you, with `image` **upgrading independently per token** to that token's Bitcoin ordinal as it's inscribed. Inscribe the whole set in one batch (non-custodial, from your own BTC wallet), and each `tokenURI(id)` then points at its own inscription. Or drop the host entirely and go fully on-chain via §8b (`setInscriptions` + `setOnchainMetadata`).
+
 ## 4. Mint flow (server voucher → on-chain mint)
 
 Server signs an EIP-712 voucher; browser submits it with payment.
